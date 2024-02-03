@@ -36,7 +36,7 @@ drive = GoogleDrive(gauth)
 
 
 def get_filesystem_tree(drive, folder_id='root', depth=0):
-    
+   
     files = drive.ListFile({'q': f"'{folder_id}' in parents"}).GetList()
 
     tree = []
