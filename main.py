@@ -1,7 +1,4 @@
-"""
-TODO:represent tree and help in cli
-TODO:use ccourse outcome topics (cover almost everything) 
-"""
+import click
 from pydrive2.drive import GoogleDrive
 from pydrive2.auth import GoogleAuth
 
@@ -23,48 +20,74 @@ gauth.SaveCredentialsFile("mycreds.txt")
 drive = GoogleDrive(gauth)
 
 
+def list_files():
+    try:
+        file_list = drive.ListFile({'q': "'root' in parents and trashed=false"}).GetList()
+        for file1 in file_list:
+            print(f"title: {file1['title']}, id: {file1['id']}")
+    except Exception as e:
+        print("Error listing files:", str(e))
 
-# def list_files():
-#     file_list = drive.ListFile({'q': "'root' in parents and trashed=false"}).GetList()
-#     for file1 in file_list:
-#         print('title: %s, id: %s' % (file1['title'], file1['id']))
-#     print("Listeddd")
-#     for file_list in drive.ListFile({'q': 'trashed=true', 'maxResults': 10}):
-#         print('Received %s files from Files.list()' % len(file_list))  # <= 10
-#     for file1 in file_list:
-#         print('title: %s, id: %s' % (file1['title'], file1['id']))
+
+def print_tree(node, depth=0):
+    indent = '  ' * depth
+    print(f"{indent}- {node['title']} ({node['mimeType']})")
+
+    for child in node['children']:
+        print_tree(child, depth + 1)
 
 
 def get_filesystem_tree(drive, folder_id='root', depth=0):
-   
-    files = drive.ListFile({'q': f"'{folder_id}' in parents"}).GetList()
+    try:
+        files = drive.ListFile({'q': f"'{folder_id}' in parents"}).GetList()
 
-    tree = []
-    for file1 in files:
-        node = {
-            'title': file1['title'],
-            'id': file1['id'],
-            'mimeType': file1['mimeType'],
-            'children': []
-        }
+        tree = []
+        for file1 in files:
+            node = {
+                'title': file1['title'],
+                'id': file1['id'],
+                'mimeType': file1['mimeType'],
+                'children': []
+            }
 
-        if file1['mimeType'] == 'application/vnd.google-apps.folder':
-            node['children'] = get_filesystem_tree(drive, file1['id'], depth + 1)
+            if file1['mimeType'] == 'application/vnd.google-apps.folder':
+                node['children'] = get_filesystem_tree(drive, file1['id'], depth + 1)
 
-        tree.append(node)
+            tree.append(node)
 
-    return tree
+        return tree
 
-
-root_folder_tree = get_filesystem_tree(drive)
-print(root_folder_tree)
-
-
+    except Exception as e:
+        print("Error getting filesystem tree:", str(e))
+        return []
 
 
 def file_upload():
+    try:
+        file1 = drive.CreateFile({'title': 'Hello.txt'})
+        file1.Upload()
+        print("File uploaded successfully. File ID:", file1['id'])
+    except Exception as e:
+        print("Error uploading file:", str(e))
 
-    file1 = drive.CreateFile({'title': 'Hello.txt'})  # Create GoogleDriveFile instance with title 'Hello.txt'.
-    file1.SetContentString('Hello World!') # Set content of the file from given string.
-    file1.Upload()
-    print("done")
+
+@click.command()
+@click.option('--list', is_flag=True, help='List files on Google Drive.')
+@click.option('--tree', is_flag=True, help='Show filesystem tree on Google Drive.')
+@click.option('--upload', is_flag=True, help='Upload a file to Google Drive.')
+def main(list, tree, upload):
+    try:
+        if list:
+            list_files()
+        elif tree:
+            root_folder_tree = get_filesystem_tree(drive)
+            for node in root_folder_tree:
+                print_tree(node)
+        elif upload:
+            file_upload()
+    except Exception as e:
+        print("Error in main function:", str(e))
+
+
+if __name__ == '__main__':
+    main()
